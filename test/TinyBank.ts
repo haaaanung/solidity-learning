@@ -2,7 +2,6 @@ import hre from "hardhat";
 import { expect } from "chai";
 import { MyToken, TinyBank } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { any } from "hardhat/internal/core/params/argumentTypes";
 
 const MINTING_AMOUNT = 100n;
 const DECIMALS = 18n;
@@ -13,6 +12,10 @@ describe("TinyBank", () => {
   let tinyBankC: TinyBank;
   beforeEach("TinyBank", async () => {
     signers = await hre.ethers.getSigners();
+    const MANAGERS: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      MANAGERS.push(signers[i].address);
+    }
     myTokenC = await hre.ethers.deployContract("MyToken", [
       "MyToken",
       "MT",
@@ -21,6 +24,7 @@ describe("TinyBank", () => {
     ]);
     tinyBankC = await hre.ethers.deployContract("TinyBank", [
       await myTokenC.getAddress(),
+      MANAGERS,
     ]);
     await myTokenC.setManager(tinyBankC.getAddress());
   });
@@ -78,12 +82,24 @@ describe("TinyBank", () => {
       );
     });
 
-    it("Should revert when changing rewardPerBlock by hacker", async () => {
+    it("Should revert when it does not all confirmed yet", async () => {
       const hacker = signers[3];
       const rewardToChange = hre.ethers.parseUnits("10000", DECIMALS);
+      await tinyBankC.connect(signers[0]).confirm();
+      await tinyBankC.connect(signers[1]).confirm();
       await expect(
         tinyBankC.connect(hacker).setRewardPerBlock(rewardToChange)
-      ).to.be.revertedWith("You are not authorized to manage this contract");
+      ).to.be.revertedWith("Not all confirmed yet");
+    });
+  });
+  describe("MultiManagedAccess reward", () => {
+    const rewardAmount = hre.ethers.parseUnits("100", DECIMALS);
+
+    it("Should revert if it's not a manager", async () => {
+      const notManager = signers[6];
+      await expect(tinyBankC.connect(notManager).confirm()).to.be.revertedWith(
+        "You are not a manager"
+      );
     });
   });
 });

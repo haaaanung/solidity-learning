@@ -13,7 +13,7 @@ describe("TinyBank", () => {
   beforeEach("TinyBank", async () => {
     signers = await hre.ethers.getSigners();
     const MANAGERS: string[] = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 4; i++) {
       MANAGERS.push(signers[i].address);
     }
     myTokenC = await hre.ethers.deployContract("MyToken", [
@@ -83,12 +83,17 @@ describe("TinyBank", () => {
     });
 
     it("Should revert when it does not all confirmed yet", async () => {
-      const hacker = signers[3];
+      const manager0 = signers[0];
+      const manager1 = signers[1];
+      const manager2 = signers[2];
+      const manager3 = signers[3];
+      const nonmanager0 = signers[4];
       const rewardToChange = hre.ethers.parseUnits("10000", DECIMALS);
-      await tinyBankC.connect(signers[0]).confirm();
-      await tinyBankC.connect(signers[1]).confirm();
+      await tinyBankC.connect(manager0).confirm();
+      await tinyBankC.connect(manager1).confirm();
+      await tinyBankC.connect(manager2).confirm();
       await expect(
-        tinyBankC.connect(hacker).setRewardPerBlock(rewardToChange)
+        tinyBankC.connect(manager0).setRewardPerBlock(rewardToChange)
       ).to.be.revertedWith("Not all confirmed yet");
     });
   });
@@ -96,7 +101,7 @@ describe("TinyBank", () => {
     const rewardAmount = hre.ethers.parseUnits("100", DECIMALS);
 
     it("Should revert if it's not a manager", async () => {
-      const notManager = signers[6];
+      const notManager = signers[4];
       await expect(tinyBankC.connect(notManager).confirm()).to.be.revertedWith(
         "You are not a manager"
       );
